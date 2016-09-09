@@ -66,53 +66,53 @@ function download_item() {
     local target="$BASEGITDIR$objname"
 
     #Create folder
-    dir=$(echo "$objname" | grep -oP "^(.*)/")
+    dir=$(echo "$objname" | grep -oE "^(.*)/")
     if [ $? -ne 1 ]; then
         mkdir -p "$BASEGITDIR/$dir"
     fi
 
     #Download file
-    curl -s "$url" > "$target"
-    
+    curl --user-agent lol -s "$url" > "$target"
+
     #Mark as downloaded and remove it from the queue
     DOWNLOADED+=("$objname")
-	echo "Downloaded: $objname"
-	
-	#Check if we have an object hash
-	if [[ "$objname" =~ /[a-f0-9]{2}/[a-f0-9]{38} ]]; then 
-		#Switch into $BASEDIR and save current working directory
-		cwd=$(pwd)
-		cd "$BASEDIR"
-		
-		#Restore hash from $objectname
-		hash=$(echo "$objname" | sed -e 's~objects~~g' | sed -e 's~/~~g')
-		
-		#Check if it's valid git object
-		git cat-file -t "$hash" &> /dev/null
-		if [ $? -ne 0 ]; then
-			#Delete invalid file
-			cd "$cwd"
-			rm "$target"
-			return 
-		fi
-		
-		#Parse output of git cat-file -p $hash
- 		hashes+=($(git cat-file -p "$hash" | grep -oP "([a-f0-9]{40})"))
+    echo "Downloaded: $objname"
 
-		cd "$cwd"
-	fi 
-	
+    #Check if we have an object hash
+    if [[ "$objname" =~ /[a-f0-9]{2}/[a-f0-9]{38} ]]; then
+        #Switch into $BASEDIR and save current working directory
+        cwd=$(pwd)
+        cd "$BASEDIR"
+
+        #Restore hash from $objectname
+        hash=$(echo "$objname" | sed -e 's~objects~~g' | sed -e 's~/~~g')
+
+        #Check if it's valid git object
+        git cat-file -t "$hash" &> /dev/null
+        if [ $? -ne 0 ]; then
+            #Delete invalid file
+            cd "$cwd"
+            rm "$target"
+            return
+        fi
+
+        #Parse output of git cat-file -p $hash
+        hashes+=($(git cat-file -p "$hash" | grep -oE "([a-f0-9]{40})"))
+
+        cd "$cwd"
+    fi
+
     #Parse file for other objects
-    hashes+=($(cat "$target" | grep -oP "([a-f0-9]{40})"))
+    hashes+=($(cat "$target" | grep -oE "([a-f0-9]{40})"))
     for hash in ${hashes[*]}
     do
         QUEUE+=("objects/${hash:0:2}/${hash:2}")
     done
 
     #Parse file for packs
-    packs+=($(cat "$target" | grep -oP "(pack\-[a-f0-9]{40})"))
+    packs+=($(cat "$target" | grep -oE "(pack\-[a-f0-9]{40})"))
     for pack in ${packs[*]}
-    do 
+    do
         QUEUE+=("objects/pack/$pack.pack")
         QUEUE+=("objects/pack/$pack.idx")
     done
